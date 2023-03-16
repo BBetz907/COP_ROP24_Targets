@@ -1,0 +1,16 @@
+library(tidyverse)
+# library(extrafont)
+library(gagglr)
+library(grabr)
+library(tameDP)
+library(keyring)
+library(getPass)
+library(remotes)
+library(janitor)
+
+library(readxl)
+library(data.table)
+library(readxl)
+library(lubridate)
+library(purrr)
+
