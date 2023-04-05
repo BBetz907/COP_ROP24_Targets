@@ -1,7 +1,8 @@
 
 
 
-filename <- "Data/mer/MSD_PREV_FY.csv"
+filename <- "Data/MER/MSD_PREV_FY.csv"
+
 
 
 # Read Flatpack and (for now) manipulate ----------------------------------
@@ -11,15 +12,33 @@ mer <- readr::read_csv(filename, col_names = TRUE) %>% clean_names() %>%
          ou = operating_unit,
          ou_id = operating_unit_uid) %>%
 # somehow the change from readr to data.table and read.csv is doubling values
-  select(-age_2018, -age_2019, -award_number, -hiv_treatment_status, -standardized_disaggregate, -status_tb, -status_cx, -category_option_combo_name, -exclude_due_to_known_issue, -g2g) %>%
-  mutate(modality = str_replace(modality, "\\(", ""),
-         modality = str_replace(modality, "\\)$", "")) %>% #remove ()s
+  select(-age_2018, -age_2019, -award_number, -hiv_treatment_status, -standardized_disaggregate, -status_tb, -status_cx, -category_option_combo_name, -g2g) %>%
+  mutate(psnu = if_else(country_name == "Uganda", snu, psnu),
+         psnu_uid = if_else(country_name == "Uganda", snu_uid, psnu_uid),
+         modality = str_replace(modality, "\\(", ""),
+         modality = str_replace(modality, "\\)$", ""),
+         mech_code = as.numeric(mech_code),
+         modality=recode(modality,
+                         "SNS Facility" = "SNS",
+                         "SNS Community" = "SNS",
+                         "Index Facility" = "Index",
+                         "Index Community" = "Index",
+                         "Other PITC" = "ActiveOtherMod",
+                         "Community VCT" = "ActiveOtherMod",
+                         "Community Mobile" = "ActiveOtherMod",
+                         "Other Community" = "ActiveOtherMod"),
+         modality = if_else(modality %in% c("Pediatric", "Emergency", "Inpatient", "Malnutrition", "PITC", "VCT"), "Other", modality)) %>% #remove ()s
   glimpse()
 
+glimpse(mer)
 
+# table(mer$modality)
+# table(tast_targets$modality)
+# 
+# table(mer$indicator)
 mer <- mer[ , order(names(mer))] %>% arrange(country_name) %>% glimpse() #order names
-table(mer$country_name)
-
+# table(mer$country_name)
+glimpse(mer)
 
 # # create list of countries ------------------------------------------------
 # 

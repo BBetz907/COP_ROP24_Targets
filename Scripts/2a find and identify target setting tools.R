@@ -12,11 +12,15 @@ countrynames
 
 
 
-# get country names from datapacks -----------------------------------------------------------------
-filepaths <- list.files(path = "Data/TaST/", 
+# get country names from TaSTs -----------------------------------------------------------------
+tast_files <- list.files(path = "Data/TaST/", 
                         pattern=str_to_lower("\\.xlsx"),
-                        full.names = TRUE)
+                        full.names = TRUE) %>% print()
 
+tast_filepaths <- files[!grepl(exclude_due_to_psnuXim, files)]
+tast_filepaths
+
+filepaths <- c(psnuXim_filepaths, tast_filepaths)
 
 source_name <- str_extract(filepaths, "(?<=./).+(?=.xlsx)") #look behind ./ and ahead of .xlsx
 country_name <- if_else(str_detect(filepaths, countrynames), str_extract(filepaths, countrynames),

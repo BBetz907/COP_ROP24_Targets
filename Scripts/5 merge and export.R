@@ -6,17 +6,16 @@ janitor::compare_df_cols(mer, tast_targets)
 
 countries_with_targets <- tast_targets %>% select(country_name) %>% group_by_all() %>% summarise()
 countries <- c(countries_with_targets$country_name)
-
+countries
 # mer %>% filter(ou == "Western Hemisphere Region") %>% select(country_name) %>% group_by_all() %>% summarise()
 
 
 class(tast_targets$modality)
 # append targets with MSD -------------------------------------------------
-targets_and_msd <- bind_rows(mer, tast_targets) %>%  
-  #filter(country_name %in% countries) %>% 
-  glimpse()
-  
-targets_and_msd <- targets_and_msd %>% mutate(current_quarter = "2023 Q1",
+targets_and_msd <- mer %>% 
+  filter(country_name %in% countries,
+         !indicator %in% c("HIV_PREV", "POP_EST", "TX_VL_COVERAGE")) %>%
+  bind_rows(tast_targets) %>% mutate(current_quarter = "2023 Q1",
          nd = if_else(indicator == "TX_PVLS", numerator_denom, ""),
          ind = if_else(indicator == "TX_PVLS", indicator, ""),
          ind1 = if_else(indicator == "TX_PVLS", "(", ""),
@@ -26,19 +25,33 @@ targets_and_msd <- targets_and_msd %>% mutate(current_quarter = "2023 Q1",
   unite("ind_vl", ind, indn, sep = " ") %>%
   mutate(indicator = recode(indicator, "TX_PVLS" = ind_vl),
          funding_agency = if_else(str_detect(funding_agency, "CDC"), "CDC", funding_agency),
-         modality = str_replace(modality, "Mod", " Community"),
-         modality = recode(modality,
-                           "Emergency Ward" = "Emergency",
-                           "Index" = "Index Facility",
-                           "Inpat" = "Inpatient",
-                           "Mobile Community" = "Community Mobile",
-                           "OtherPITC" = "Other PITC",
-                           "TBClinic" = "TB Clinic"),
+         age_coarse = if_else(str_detect(age, "Months|<|0[0-9]-0[0-9]|10-14"), "<15", if_else(age!="Unknown Age", "15+", age)),
+         # modality = str_replace(modality, "Mod", " Community"),
+         # modality = recode(modality,
+         #                   "Emergency Ward" = "Emergency",
+         #                   "Index" = "Index Facility",
+         #                   "Inpat" = "Inpatient",
+         #                   "Mobile Community" = "Community Mobile",
+         #                   "OtherPITC" = "Other PITC",
+         #                   "TBClinic" = "TB Clinic"),
          day = today(tzone = "UTC")) %>% select(-ind_vl) %>%
+  left_join(datapack, by = c("country_name")) %>% 
+  relocate(age_coarse, .after = datapack) %>%
   glimpse()
+
+
+# targets_and_msd <- targets_and_msd[ , order(names(targets_and_msd))] %>% arrange(country_name)  #order names
+
 
 targets_and_msd %>% group_by(country_name, source_name) %>% summarise() %>% filter(!str_detect(source_name, "^DATIM|Derived")) %>% print(n=length(unique(country_name)))
 
 
-write_csv(targets_and_msd, "C:/Users/bbetz/projects/COP23/Data Out/targets_and_msd.csv", na = "")
+
+rm(mer, targets, tasts, tasts_im, tast_targets, tasts_neg, tasts_index, tasts_sd, tasts_sd_merge)
+gc()
+write_csv(targets_and_msd, "Data Out/targets_and_msd.csv", na = "")
+rm(targets_and_msd)
+gc()
+
+
 
