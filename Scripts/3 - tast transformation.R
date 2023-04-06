@@ -8,7 +8,8 @@ targets <- bind_rows(tasts, tastsXim)
 KP <- c("FSW", "MSM", "PWID", "TG", "People in prisons and other enclosed settings")
 
 tasts_sd <- targets %>% 
-  filter(fiscal_year == 2024) %>%
+  filter(fiscal_year == 2024,
+         !(indicator == "PrEP_CT" & standardizeddisaggregate =="Age/Sex/HIVStatus")) %>%
   mutate(values = targets,
          results_or_targets = "Targets",
          modality = recode(modality, "TBClinic" = "TB Clinic"),
