@@ -2,13 +2,13 @@
 # combine PSNUxIM and TaST files ------------------------------------------
 
 targets <- bind_rows(tasts, tastsXim)
-
-
+#output country names duplicated
+tasts |> semi_join(tastsXim, by = "country") |> count(country)
 # manipulate --------------------------------------------------------------
 KP <- c("FSW", "MSM", "PWID", "TG", "People in prisons and other enclosed settings")
 
 tasts_sd <- targets %>% 
-  filter(fiscal_year == 2024,
+  filter(fiscal_year == 2025,
          !(indicator == "PrEP_CT" & standardizeddisaggregate =="Age/Sex/HIVStatus")) %>%
   mutate(values = targets,
          results_or_targets = "Targets",
@@ -25,13 +25,15 @@ tasts_sd <- targets %>%
          # indicator_type = indicatortype,
          numerator_denom = numeratordenom,
          ou = operatingunit,
-         # prime_partner = prime_partner_name,
-         psnu_uid = psnuuid,
+         prime_partner = prime_partner_name,
          status_hiv = statushiv,
          disaggregate = standardizeddisaggregate,
+         age_coarse = trendscoarse
          # snu = snu1
   ) %>%
   select(-cumulative, -snuprioritization, -country) %>% glimpse()
+
+table(tasts_sd$source_name)
 
 # ug <- tasts_sd %>% filter(country_name=="Uganda", str_detect(psnu, "Kampala")) %>% glimpse()
 # table(ug$indicator, ug$psnu)
@@ -53,28 +55,19 @@ tasts_neg <- tasts_sd %>%
 janitor::compare_df_cols(tasts_sd, tasts_index, tasts_neg)	
 
 
-tasts_sd_merge <- bind_rows(tasts_sd, tasts_index, tasts_neg) %>%
-  mutate(indicator = str_replace(indicator, "^PREP", "PrEP")) %>%
+tast_targets_pre <- bind_rows(tasts_sd, tasts_index, tasts_neg) %>%
+  mutate(indicator = str_replace(indicator, "^PREP", "PrEP"),
+         country_name = recode(country_name, "Papua New Guinea" = "PNG"),
+         ou = recode(ou, "Democratic Republic of the Congo" = "DRC")) %>%
   select(-otherdisaggregate)
 
-tast_targets <- tasts_sd_merge %>% left_join(source_files) %>%
-  mutate(ou = case_when(country_name == "Caribbean Region" ~ "Western Hemisphere Region",
-                        TRUE ~ ou),
-         country_name = case_when(country_name == "Caribbean Region" ~ psnu,
-                                  TRUE ~ country_name),
-         psnu = case_when(ou == "Western Hemisphere Region" ~ "",
-                          TRUE ~ psnu)) %>%
-  mutate(country_name = recode(country_name, "Papua New Guinea" = "PNG"),
-         ou = recode(ou, "Democratic Republic of the Congo" = "DRC"))
+tast_targets <- tast_targets_pre[ , order(names(tast_targets_pre))] %>% arrange(country_name) 
+# |> 
+  # filter(country_name == "Uganda") #order names
 
-
-
-tast_targets <- tast_targets[ , order(names(tast_targets))] %>% arrange(country_name)  #order names
-
-datapack <- tast_targets %>% group_by(country_name, source_name) %>% summarise() %>% rename("datapack" = "source_name") %>% print(n=length(unique(country_name)))
+datapack <- tast_targets %>% group_by(country_name, source_name) %>% summarise() %>% rename("datapack" = "source_name") %>% print(n=55)
 
 table(tast_targets$fiscal_year, tast_targets$results_or_targets)
-glimpse(tast_targets)
 
 
 

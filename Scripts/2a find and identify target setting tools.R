@@ -15,34 +15,28 @@ countrynames
 # get country names from TaSTs -----------------------------------------------------------------
 tast_files <- list.files(path = "Data/TaST/", 
                         pattern=str_to_lower("\\.xlsx"),
-                        full.names = TRUE) %>% print()
+                        full.names = TRUE) 
 
-tast_filepaths <- files[!grepl(exclude_due_to_psnuXim, files)]
+tast_filepaths <- tast_files[!grepl(exclude_due_to_psnuXim, tast_files)]
 tast_filepaths
 
-filepaths <- c(psnuXim_filepaths, tast_filepaths)
+filepaths <- c(psnuXim_filepaths, tast_filepaths) %>% print()
 
 source_name <- str_extract(filepaths, "(?<=./).+(?=.xlsx)") #look behind ./ and ahead of .xlsx
 country_name <- if_else(str_detect(filepaths, countrynames), str_extract(filepaths, countrynames),
-                        if_else(str_detect(filepaths, "HAITI"), "Haiti",
-                                if_else(str_detect(filepaths, "CaribbeanRegion"), "Caribbean Region",              
-                                        if_else(str_detect(filepaths, "DRC|DemocraticRepublic"), "DRC",
-                                                if_else(str_detect(filepaths, "DR|DominicanRepublic"), "Dominican Republic",
-                                                        if_else(str_detect(filepaths, "SierraLeone"), "Sierra Leone",
-                                                        if_else(str_detect(filepaths, "CI|CotedIvoire"), "Cote d'Ivoire", 
-                                                        if_else(str_detect(filepaths, "CI"), "Cote d'Ivoire", 
-                                                                if_else(str_detect(filepaths, "PNG"), "Papua New Guinea",
-                                                                        if_else(str_detect(filepaths, "Peru"), "Peru",
-                                                                                if_else(str_detect(filepaths, "Colombia"), "Colombia",
-                                                                                        if_else(str_detect(filepaths, "BurkinaFaso"), "Burkina Faso",
-                                                                                                if_else(str_detect(filepaths, "Benin"), "Benin", "NA")))))))))))))
+                          if_else(str_detect(filepaths, "SouthAfrica"), "South Africa",
+                            if_else(str_detect(filepaths, "Central America"), "Central America Region",              
+                                if_else(str_detect(filepaths, "Caribbean\\s?Region"), "Caribbean Region",              
+                                        if_else(str_detect(filepaths, "DRC|DemocraticRepublic"), "DRC", 
+                                                if_else(str_detect(filepaths, "CotedI"), "Cote d'Ivoire", "NA"))))))
+
 
 countries <- as.list(country_name)
 
 source_files <- data.frame(country_name, source_name) %>% 
-  mutate(country_name = recode(country_name, "Jamaica" = "Caribbean Region"),
-         source_name = if_else(country_name == "Ethiopia", str_replace(source_name, "Group [1-4]", "All Groups"), source_name),
-         source_name = if_else(country_name == "Ethiopia", str_replace(source_name, "All Groups with PSNUxIM 04122022", "All Groups with PSNUxIM 04142022"), source_name)) %>% arrange(country_name) %>%
+  mutate(country_name = recode(country_name, "Jamaica" = "CaribbeanRegion"),
+         country_name = recode(country_name, "Brazil" = "Central America Region")) %>% 
+  arrange(country_name) %>%
   group_by(country_name, source_name) %>% summarise() %>% ungroup() %>% print(n=45)
 
 

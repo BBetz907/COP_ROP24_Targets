@@ -1,6 +1,11 @@
+rm(targets, tasts, tastsXim, tasts_neg, tasts_index, tasts_sd, tast_targets_pre)
+gc()
 
 # dplyr::all_equal(mer, tast_targets)	
 janitor::compare_df_cols(mer, tast_targets)	
+setdiff(names(mer), names(tast_targets))
+setdiff(names(tast_targets), names(mer))
+
 # vetr::alike()	
 # diffdf::diffdf()
 
@@ -10,12 +15,25 @@ countries
 # mer %>% filter(ou == "Western Hemisphere Region") %>% select(country_name) %>% group_by_all() %>% summarise()
 
 
-class(tast_targets$modality)
+df_tast <- select(tast_targets, -source_processed, -source_type, -age_coarse)
+df_msd_lim <- select(mer, all_of(names(df_tast)), msd_version, cumulative) 
+# %>% 
+  # inner_join(mer_disagg_mapping, by = c("indicator", 
+                                        # "disaggregate" = "standardizeddisaggregate",
+                                        # "numerator_denom" = "numeratordenom"))
+
+# mer_lim <- select(mer, all_of(names(mer)))
+# https://usaid-oha-si.github.io/tameDP/articles/combining-with-msd.html
+
+
+# class(tast_targets$modality)
 # append targets with MSD -------------------------------------------------
-targets_and_msd <- mer %>% 
-  filter(country_name %in% countries,
+targets_and_msd <- df_msd_lim %>% 
+  filter(
+    # country_name %in% countries,
          !indicator %in% c("HIV_PREV", "POP_EST", "TX_VL_COVERAGE")) %>%
-  bind_rows(tast_targets) %>% mutate(current_quarter = "2023 Q1",
+  bind_rows(df_tast) %>%
+  mutate(current_quarter = "2024 Q1",
          nd = if_else(indicator == "TX_PVLS", numerator_denom, ""),
          ind = if_else(indicator == "TX_PVLS", indicator, ""),
          ind1 = if_else(indicator == "TX_PVLS", "(", ""),
@@ -36,22 +54,25 @@ targets_and_msd <- mer %>%
          #                   "TBClinic" = "TB Clinic"),
          day = today(tzone = "UTC")) %>% select(-ind_vl) %>%
   left_join(datapack, by = c("country_name")) %>% 
-  relocate(age_coarse, .after = datapack) %>%
+  relocate(age_coarse, current_quarter, day, .after = datapack) %>%
   glimpse()
 
-
+glimpse(targets_and_msd)
+targets_and_msd |> count(fiscal_year)
 # targets_and_msd <- targets_and_msd[ , order(names(targets_and_msd))] %>% arrange(country_name)  #order names
 
 
-targets_and_msd %>% group_by(country_name, source_name) %>% summarise() %>% filter(!str_detect(source_name, "^DATIM|Derived")) %>% print(n=length(unique(country_name)))
+# targets_and_msd %>% group_by(country_name, source_name) %>% summarise() %>% filter(!str_detect(source_name, "^DATIM|Derived")) %>% print(n=length(unique(country_name)))
 
 
 
-rm(mer, targets, tasts, tasts_im, tast_targets, tasts_neg, tasts_index, tasts_sd, tasts_sd_merge)
+
 gc()
 write_csv(targets_and_msd, "Data Out/targets_and_msd.csv", na = "")
-rm(targets_and_msd)
 gc()
 
+rm(targets_and_msd, mer, tast_targets, df_tast, df_msd_lim)
+gc()
 
-
+# <30% achievement against FY24 targets, even projecting Q3-4 increases
+# <5% achievement against FY24 targets

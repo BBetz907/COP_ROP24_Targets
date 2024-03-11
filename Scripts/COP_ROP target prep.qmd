@@ -1,0 +1,352 @@
+---
+title: "COP/ROP KP Targets"
+format: html
+editor: visual
+---
+
+1.  Load Packages
+
+    ```{r}
+    library(tidyverse)
+    library(gagglr)
+    library(tameDP)
+    library(janitor)
+    ```
+
+2.  PSNUxIM and create list to exclude TaSTs from these countries to prevent duplication
+
+    ```{r}
+    # get country names from TaST PSNUxIM tabs -----------------------------------------------------------------
+    psnuXim_filepaths <- list.files(path = "./Data/PSNUxIM/", 
+                               pattern=str_to_lower("\\.xlsx"),
+                               full.names = TRUE) %>% print()
+
+    load_secrets() #for DATIM login
+    source_psnu <- "PSNUxIM"
+
+    #save psnuXim inputs as DF
+    tastsXim <- psnuXim_filepaths %>% map_dfr(tame_dp, 
+                                         type = source_psnu,
+                                         # map_names = TRUE
+                                         ) %>%
+       get_names(datim_user = datim_user(), datim_password = datim_pwd()) %>%
+       mutate(source_type = source_psnu) %>% 
+      glimpse()
+
+    #generate list of countries with psnu x im tabs to exclude from earlier versions of TaSTs being read
+    exclude_due_to_psnuXim <- paste( c(unique(tastsXim$country)), collapse = "|") %>% print()
+
+
+    ```
+
+3.  Find and identify target setting tools
+
+    ```{r}
+
+
+    # get country_names -------------------------------------------------------
+    countrynames <- glamr::pepfar_country_list  %>%
+      mutate(country_name = country) %>%
+      distinct(country_name) %>% 
+      arrange(country_name) %>% 
+      pull() %>% 
+      paste0(collapse = "|")
+    class(countrynames)
+    countrynames
+
+
+
+    # get country names from TaSTs -----------------------------------------------------------------
+    tast_files <- list.files(path = "./Data/TaST/", 
+                            pattern=str_to_lower("\\.xlsx"),
+                            full.names = TRUE) 
+
+    tast_filepaths <- tast_files[!grepl(exclude_due_to_psnuXim, tast_files)]
+    tast_filepaths
+
+    filepaths <- c(psnuXim_filepaths, tast_filepaths) %>% print()
+
+    source_name <- str_extract(filepaths, "(?<=./).+(?=.xlsx)") #look behind ./ and ahead of .xlsx
+    country_name <- if_else(str_detect(filepaths, countrynames), str_extract(filepaths, countrynames),
+                            if_else(str_detect(filepaths, "HAITI"), "Haiti",
+                                    if_else(str_detect(filepaths, "CaribbeanRegion"), "Caribbean Region",              
+                                            if_else(str_detect(filepaths, "DRC|DemocraticRepublic"), "DRC",
+                                                    if_else(str_detect(filepaths, "DR|DominicanRepublic"), "Dominican Republic",
+                                                            if_else(str_detect(filepaths, "SierraLeone"), "Sierra Leone",
+                                                            if_else(str_detect(filepaths, "CI|CotedIvoire"), "Cote d'Ivoire", 
+                                                            if_else(str_detect(filepaths, "CI"), "Cote d'Ivoire", 
+                                                                    if_else(str_detect(filepaths, "PNG"), "Papua New Guinea",
+                                                                            if_else(str_detect(filepaths, "Peru"), "Peru",
+                                                                                    if_else(str_detect(filepaths, "Colombia"), "Colombia",
+                                                                                            if_else(str_detect(filepaths, "BurkinaFaso"), "Burkina Faso",
+                                                                                                    if_else(str_detect(filepaths, "Benin"), "Benin", "NA")))))))))))))
+
+    countries <- as.list(country_name)
+
+    source_files <- data.frame(country_name, source_name) %>% 
+      mutate(country_name = recode(country_name, "Jamaica" = "Caribbean Region"),
+             source_name = if_else(country_name == "Ethiopia", str_replace(source_name, "Group [1-4]", "All Groups"), source_name),
+             source_name = if_else(country_name == "Ethiopia", str_replace(source_name, "All Groups with PSNUxIM 04122022", "All Groups with PSNUxIM 04142022"), source_name)) %>% arrange(country_name) %>%
+      group_by(country_name, source_name) %>% summarise() %>% ungroup() %>% print(n=45)
+
+
+    # # # paths <- str_extract(filepaths, "(?<=ack_|ack\\s)[A-Z,a-z]+")
+    # # country_name <- if_else(str_detect(source_name,"Datapack_COP22"), str_extract(source_name, "(?<=COP22_)[A-Z,a-z]+"), #look behind COP22_
+    # #                         if_else(str_detect(source_name,"ROP22"), str_extract(source_name, "[A-Z,a-z]+"),
+    #                                 if_else(str_detect(source_name, "South"), str_extract(source_name, "South\\s[A-Z,a-z]+"), #look behind South and include it and any alphabetic chars after the space...
+    #                                 if_else(str_detect(source_name, "Burkina"), str_extract(source_name, "Burkina\\s[A-Z,a-z]+"), #look behind Burkina and include it and any alphabetic chars after the space...
+    #                                 if_else(str_detect(source_name, "Sierra"), str_extract(source_name, "Sierra\\s[A-Z,a-z]+"))))) #look behind Sierra and include it and any alphabetic chars after the space...
+                      
+
+    ```
+
+    pre-psnu x IM TaSTs
+
+    ```{r}
+    tasts <- tast_filepaths %>% map_dfr(tame_dp, map_names = FALSE,
+                                   # psnu_lvl = TRUE,
+                                   # type = "PSNUxIM"
+                                   ) %>% filter(!is.na(targets), !is.na(operatingunit)) %>% 
+      mutate(source_type = "TaST") %>%
+      glimpse()
+
+    unique(tasts$country)
+
+    table(tasts$country)
+
+    ```
+
+4.  TaST transformation
+
+    ```{r}
+
+    # combine PSNUxIM and TaST files ------------------------------------------
+
+    targets <- bind_rows(tasts, tastsXim)
+
+
+    # manipulate --------------------------------------------------------------
+    KP <- c("FSW", "MSM", "PWID", "TG", "People in prisons and other enclosed settings")
+
+    tasts_sd <- targets %>% 
+      filter(fiscal_year == 2024,
+             !(indicator == "PrEP_CT" & standardizeddisaggregate =="Age/Sex/HIVStatus")) %>%
+      mutate(values = targets,
+             results_or_targets = "Targets",
+             modality = recode(modality, "TBClinic" = "TB Clinic"),
+             fy = paste0("FY", str_extract(as.character(fiscal_year), "2[0-9]$")),
+             mech_code = as.numeric(mech_code),
+             key_pops = case_when(otherdisaggregate %in% KP ~ otherdisaggregate),
+             otherdisaggregate = case_when(!otherdisaggregate %in% KP  ~ otherdisaggregate),
+             country_name = recode(country, "Democratic Republic of the Congo" = "DRC"),
+             indicator = if_else(indicator %in% c("TB_STAT", "PMTCT_STAT") & statushiv == "Positive", str_c(indicator, "POS", sep = "_"), indicator),
+             indicator = if_else(indicator == "OVC_SERV" & ! is.na(otherdisaggregate), str_c(indicator, str_to_upper(otherdisaggregate), sep = "_"), indicator),) %>% 
+      filter(!(indicator %in% c("TB_STAT", "PMTCT_STAT") & statushiv == "Negative")) %>%
+      rename(age = ageasentered,
+             # indicator_type = indicatortype,
+             numerator_denom = numeratordenom,
+             ou = operatingunit,
+             # prime_partner = prime_partner_name,
+             psnu_uid = psnuuid,
+             status_hiv = statushiv,
+             disaggregate = standardizeddisaggregate,
+             # snu = snu1
+      ) %>%
+      select(-cumulative, -snuprioritization, -country) %>% glimpse()
+
+    # ug <- tasts_sd %>% filter(country_name=="Uganda", str_detect(psnu, "Kampala")) %>% glimpse()
+    # table(ug$indicator, ug$psnu)
+
+
+    # index testing -----------------------------------------------------------
+    testing <- c("KnownPos","NewNeg","NewPos")
+
+    tasts_index <- tasts_sd %>%
+      filter(indicator == "HTS_INDEX") %>% 
+      mutate(indicator = paste0(indicator, "_", toupper(otherdisaggregate))) 
+    # test_neg ----------------------------------------------------------------
+    tasts_neg <- tasts_sd %>%
+      filter(indicator == "HTS_TST" & status_hiv == "Negative") %>% 
+      mutate(indicator = paste0(indicator, "_", toupper(str_extract(status_hiv, "^Neg"))))
+
+    # rejoin tamedp sections --------------------------------------------------
+    # all.equal(tasts_sd, tasts_index, tasts_neg)	
+    janitor::compare_df_cols(tasts_sd, tasts_index, tasts_neg)	
+
+
+    tasts_sd_merge <- bind_rows(tasts_sd, tasts_index, tasts_neg) %>%
+      mutate(indicator = str_replace(indicator, "^PREP", "PrEP")) %>%
+      select(-otherdisaggregate)
+
+    tast_targets <- tasts_sd_merge %>% left_join(source_files) %>%
+      mutate(ou = case_when(country_name == "Caribbean Region" ~ "Western Hemisphere Region",
+                            TRUE ~ ou),
+             country_name = case_when(country_name == "Caribbean Region" ~ psnu,
+                                      TRUE ~ country_name),
+             psnu = case_when(ou == "Western Hemisphere Region" ~ "",
+                              TRUE ~ psnu)) %>%
+      mutate(country_name = recode(country_name, "Papua New Guinea" = "PNG"),
+             ou = recode(ou, "Democratic Republic of the Congo" = "DRC"))
+
+
+
+    tast_targets <- tast_targets[ , order(names(tast_targets))] %>% arrange(country_name)  #order names
+
+    datapack <- tast_targets %>% group_by(country_name, source_name) %>% summarise() %>% rename("datapack" = "source_name") %>% print(n=length(unique(country_name)))
+
+    table(tast_targets$fiscal_year, tast_targets$results_or_targets)
+    glimpse(tast_targets)
+
+
+
+    # unique(tast_targets$age)
+    # mer %>% select(age) %>% group_by_all() %>% summarise() %>%
+    #   mutate(age_coarse = if_else(str_detect(age, "Months|<|0[0-9]-0[0-9]|10-14"), "<15", if_else(age!="Unknown Age", "15+", age))) %>% print(n=25)
+
+    ```
+
+5.  MSD
+
+    ```{r}
+
+
+
+    filename <- "./Data/MER/MSD_PREV_FY.csv"
+
+
+
+    # Read Flatpack and (for now) manipulate ----------------------------------
+    # somehow the change from readr to data.table and read.csv is doubling values
+    mer <- readr::read_csv(filename, col_names = TRUE) %>% clean_names() %>% 
+      rename(age = age_as_entered,
+             ou = operating_unit,
+             ou_id = operating_unit_uid) %>%
+    # somehow the change from readr to data.table and read.csv is doubling values
+      select(-age_2018, -age_2019, -award_number, -hiv_treatment_status, -standardized_disaggregate, -status_tb, -status_cx, -category_option_combo_name, -g2g) %>%
+      mutate(psnu = if_else(country_name == "Uganda", snu, psnu),
+             psnu_uid = if_else(country_name == "Uganda", snu_uid, psnu_uid),
+             modality = str_replace(modality, "\\(", ""),
+             modality = str_replace(modality, "\\)$", ""),
+             mech_code = as.numeric(mech_code),
+             modality=recode(modality,
+                             "SNS Facility" = "SNS",
+                             "SNS Community" = "SNS",
+                             "Index Facility" = "Index",
+                             "Index Community" = "Index",
+                             "Other PITC" = "ActiveOtherMod",
+                             "Community VCT" = "ActiveOtherMod",
+                             "Community Mobile" = "ActiveOtherMod",
+                             "Other Community" = "ActiveOtherMod"),
+             modality = if_else(modality %in% c("Pediatric", "Emergency", "Inpatient", "Malnutrition", "PITC", "VCT"), "Other", modality)) %>% #remove ()s
+      glimpse()
+
+    glimpse(mer)
+
+    # table(mer$modality)
+    # table(tast_targets$modality)
+    # 
+    # table(mer$indicator)
+    mer <- mer[ , order(names(mer))] %>% arrange(country_name) %>% glimpse() #order names
+    # table(mer$country_name)
+    glimpse(mer)
+
+    # # create list of countries ------------------------------------------------
+    # 
+    # any_country <- mer %>% select(country_name) %>% group_by_all() %>% summarise() %>% ungroup() %>%
+    #   pull() %>% paste(collapse = "|") %>% print()
+    # class(country_name)
+    # # append targets with MSD
+    # bind_rows(mer, COPtargets)
+    # 
+    # 
+    # 
+    # 
+    # 
+    # 
+    # 
+    # 
+    # FHI <- mer %>% filter(funding_agency == "USAID", 
+    #                       fiscal_year == 2022,
+    #                       prime_partner == "Family Health International" | prime_partner == "FHI Development 360 LLC") %>% 
+    #   select(country_name, mech_name, mech_code, prime_partner) %>%
+    #   group_by_all() %>%
+    #   summarise() %>%
+    #   ungroup() %>%
+    #   glimpse()
+    # 
+    # FHI
+
+    ```
+
+    ```{r}
+    rm(targets, tasts, tastsXim, tasts_neg, tasts_index, tasts_sd, tasts_sd_merge)
+    gc()
+    ```
+
+6.  Merge
+
+    ```{r}
+
+    # dplyr::all_equal(mer, tast_targets)	
+    janitor::compare_df_cols(mer, tast_targets)	
+    # vetr::alike()	
+    # diffdf::diffdf()
+
+    countries_with_targets <- tast_targets %>% select(country_name) %>% group_by_all() %>% summarise()
+    countries <- c(countries_with_targets$country_name)
+    countries
+    # mer %>% filter(ou == "Western Hemisphere Region") %>% select(country_name) %>% group_by_all() %>% summarise()
+
+
+    class(tast_targets$modality)
+    # append targets with MSD -------------------------------------------------
+    targets_and_msd <- mer %>% 
+      filter(country_name %in% countries,
+             !indicator %in% c("HIV_PREV", "POP_EST", "TX_VL_COVERAGE")) %>%
+      bind_rows(tast_targets) %>% mutate(current_quarter = "2023 Q1",
+             nd = if_else(indicator == "TX_PVLS", numerator_denom, ""),
+             ind = if_else(indicator == "TX_PVLS", indicator, ""),
+             ind1 = if_else(indicator == "TX_PVLS", "(", ""),
+             ind2 = if_else(indicator == "TX_PVLS", ")", ""),
+             key_pops = recode(key_pops, "People in prisons and other enclosed settings" = "People in prisons")) %>%
+      unite("indn", ind1, nd, ind2, sep = "") %>%
+      unite("ind_vl", ind, indn, sep = " ") %>%
+      mutate(indicator = recode(indicator, "TX_PVLS" = ind_vl),
+             funding_agency = if_else(str_detect(funding_agency, "CDC"), "CDC", funding_agency),
+             age_coarse = if_else(str_detect(age, "Months|<|0[0-9]-0[0-9]|10-14"), "<15", if_else(age!="Unknown Age", "15+", age)),
+             # modality = str_replace(modality, "Mod", " Community"),
+             # modality = recode(modality,
+             #                   "Emergency Ward" = "Emergency",
+             #                   "Index" = "Index Facility",
+             #                   "Inpat" = "Inpatient",
+             #                   "Mobile Community" = "Community Mobile",
+             #                   "OtherPITC" = "Other PITC",
+             #                   "TBClinic" = "TB Clinic"),
+             day = today(tzone = "UTC")) %>% select(-ind_vl) %>%
+      left_join(datapack, by = c("country_name")) %>% 
+      relocate(age_coarse, current_quarter, day, .after = datapack) %>%
+      glimpse()
+
+    glimpse(targets_and_msd)
+
+    # targets_and_msd <- targets_and_msd[ , order(names(targets_and_msd))] %>% arrange(country_name)  #order names
+
+
+    targets_and_msd %>% group_by(country_name, source_name) %>% summarise() %>% filter(!str_detect(source_name, "^DATIM|Derived")) %>% print(n=length(unique(country_name)))
+
+    ```
+
+    Export
+
+    ```{r}
+    gc()
+    write_excel_csv(targets_and_msd, "./Data Out/targets_and_msd.csv", na = "")
+
+    ```
+
+    Clear Memory
+
+    ```{r}
+    rm(targets_and_msd, mer, tast_targets)
+    gc()
+    ```

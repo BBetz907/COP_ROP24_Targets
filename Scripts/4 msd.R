@@ -1,7 +1,7 @@
 
 
 
-filename <- "Data/MER/MSD_PREV_FY.csv"
+filename <- "Data/MER/MSD_PREV_FY.csv" 
 
 
 
@@ -10,11 +10,12 @@ filename <- "Data/MER/MSD_PREV_FY.csv"
 mer <- readr::read_csv(filename, col_names = TRUE) %>% clean_names() %>% 
   rename(age = age_as_entered,
          ou = operating_unit,
-         ou_id = operating_unit_uid) %>%
+         ou_id = operating_unit_uid,
+         disaggregate = standardized_disaggregate) %>%
 # somehow the change from readr to data.table and read.csv is doubling values
-  select(-age_2018, -age_2019, -award_number, -hiv_treatment_status, -standardized_disaggregate, -status_tb, -status_cx, -category_option_combo_name, -g2g) %>%
+  select(-age_2018, -age_2019, -award_number, -hiv_treatment_status, -status_tb, -status_cx, -category_option_combo_name)  %>%
   mutate(psnu = if_else(country_name == "Uganda", snu, psnu),
-         psnu_uid = if_else(country_name == "Uganda", snu_uid, psnu_uid),
+         psnuuid = if_else(country_name == "Uganda", snu_uid, psnuuid),
          modality = str_replace(modality, "\\(", ""),
          modality = str_replace(modality, "\\)$", ""),
          mech_code = as.numeric(mech_code),
@@ -30,6 +31,8 @@ mer <- readr::read_csv(filename, col_names = TRUE) %>% clean_names() %>%
          modality = if_else(modality %in% c("Pediatric", "Emergency", "Inpatient", "Malnutrition", "PITC", "VCT"), "Other", modality)) %>% #remove ()s
   glimpse()
 
+mer |> count(results_or_targets)
+
 glimpse(mer)
 
 # table(mer$modality)
@@ -39,6 +42,8 @@ glimpse(mer)
 mer <- mer[ , order(names(mer))] %>% arrange(country_name) %>% glimpse() #order names
 # table(mer$country_name)
 glimpse(mer)
+
+mer |> count(country_name)
 
 # # create list of countries ------------------------------------------------
 # 
