@@ -3,6 +3,7 @@
 .Rhistory
 .RData
 .Ruserdata
+
 #no data
 *.csv
 *.txt
@@ -11,9 +12,14 @@
 *.xls
 *.zip
 *.png
+*.hyper
 *.twbx
+*.twb
 *.pptx
 *.Rproj
+"Data Out/extract.hyper"
+extract.hyper
+
 
 #nothing from these folders
 AI/*
@@ -22,3 +28,7 @@ Images/*
 Graphics/*
 Data/*
 Dataout/*
+Data Out/*
+"Data Out"/*
+Key Populations COP_ROP Target Tool.twb Files/*
+"Key Populations COP_ROP Target Tool.twb Files"/*
