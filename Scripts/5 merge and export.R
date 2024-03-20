@@ -1,5 +1,3 @@
-rm(targets, tasts, tastsXim, tasts_neg, tasts_index, tasts_sd, tast_targets_pre)
-gc()
 
 # dplyr::all_equal(mer, tast_targets)	
 janitor::compare_df_cols(mer, tast_targets)	
@@ -69,6 +67,10 @@ targets_and_msd |> count(fiscal_year)
 
 gc()
 write_csv(targets_and_msd, "Data Out/targets_and_msd.csv", na = "")
+gc()
+
+
+rm(targets, tasts, tastsXim, tasts_neg, tasts_index, tasts_sd, tast_targets_pre)
 gc()
 
 rm(targets_and_msd, mer, tast_targets, df_tast, df_msd_lim)

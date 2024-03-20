@@ -28,7 +28,9 @@ mer <- readr::read_csv(filename, col_names = TRUE) %>% clean_names() %>%
                          "Community VCT" = "ActiveOtherMod",
                          "Community Mobile" = "ActiveOtherMod",
                          "Other Community" = "ActiveOtherMod"),
-         modality = if_else(modality %in% c("Pediatric", "Emergency", "Inpatient", "Malnutrition", "PITC", "VCT"), "Other", modality)) %>% #remove ()s
+         modality = if_else(modality %in% c("Pediatric", "Emergency", "Inpatient", "Malnutrition", "PITC", "VCT"), "Other", modality),
+         indicator = if_else(is.na(modality), indicator,
+                          if_else(modality == "PrEP CT", str_c("PrEP_CT_", indicator), indicator))) %>% #remove ()s
   glimpse()
 
 mer |> count(results_or_targets)
